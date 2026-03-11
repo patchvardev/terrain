@@ -2,76 +2,123 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Procedural Landscape - Parametric Control</title>
+    <title>Nature-Based Procedural System</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; background: #050505; color: #00ffcc; font-family: 'Courier New', monospace; overflow: hidden; }
-        #controls { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.85); padding: 20px; border: 1px solid #00ffcc; width: 220px; z-index: 100; }
-        .group { margin-bottom: 15px; }
-        label { display: block; font-size: 11px; margin-bottom: 5px; }
-        input { width: 100%; cursor: pointer; }
-        .val { float: right; color: #fff; }
+        body { margin: 0; background: #87CEEB; overflow: hidden; font-family: 'Segoe UI', sans-serif; }
+        #ui { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.9); padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 240px; }
+        .slider-group { margin-bottom: 15px; }
+        label { display: block; font-size: 12px; font-weight: bold; color: #333; margin-bottom: 5px; }
+        input { width: 100%; }
+        button { width: 100%; padding: 8px; background: #2e7d32; color: white; border: none; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div id="controls">
-    <div style="font-weight:bold; margin-bottom:15px; border-bottom: 1px solid #00ffcc;">TERRAIN_PARAMS</div>
-    
-    <div class="group">
-        <label>Complexity <span class="val" id="oct-v">3</span></label>
-        <input type="range" id="octaves" min="1" max="5" value="3">
+<div id="ui">
+    <label style="font-size: 16px; margin-bottom: 10px;">Nature Generator</label>
+    <div class="slider-group">
+        <label>Erosion (Octaves): <span id="oct-val">4</span></label>
+        <input type="range" id="octaves" min="1" max="6" value="4">
     </div>
-
-    <div class="group">
-        <label>Peak Height <span class="val" id="amp-v">15</span></label>
-        <input type="range" id="amplitude" min="5" max="40" value="15">
+    <div class="slider-group">
+        <label>Mountain Height: <span id="amp-val">20</span></label>
+        <input type="range" id="amplitude" min="5" max="50" value="20">
     </div>
-
-    <div class="group">
-        <label>Noise Scale <span class="val" id="scale-v">0.1</span></label>
-        <input type="range" id="scale" min="0.05" max="0.3" step="0.01" value="0.1">
-    </div>
-
-    <button id="reseed" style="width:100%; background:transparent; color:#00ffcc; border:1px solid #00ffcc; cursor:pointer; padding:5px;">GENERATE NEW SEED</button>
+    <button id="reseed">NEW ECOSYSTEM</button>
 </div>
 
 <script>
     let scene, camera, renderer, terrain, geometry;
-    let seed = Math.random() * 1000;
+    let seed = Math.random() * 50;
 
     function init() {
         scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        scene.background = new THREE.Color(0x87CEEB); // Sky Blue
+        scene.fog = new THREE.Fog(0x87CEEB, 50, 150);
+
+        camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 45, 80);
+        camera.lookAt(0, 0, 0);
+
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        camera.position.set(0, 30, 70);
-        camera.lookAt(0,0,0);
+        // Sunlight (Directional)
+        const sun = new THREE.DirectionalLight(0xffffff, 1.2);
+        sun.position.set(50, 100, 50);
+        scene.add(sun);
+        scene.add(new THREE.AmbientLight(0x404040, 0.6));
 
-        const light = new THREE.PointLight(0x00ffcc, 1, 500);
-        light.position.set(0, 50, 50);
-        scene.add(light);
-        scene.add(new THREE.AmbientLight(0x222222));
-
-        updateTerrain();
+        createNature();
         animate();
     }
 
-    function updateTerrain() {
+    function createNature() {
         if (terrain) scene.remove(terrain);
 
-        const octaves = parseInt(document.getElementById('octaves').value);
+        const octs = parseInt(document.getElementById('octaves').value);
         const amp = parseFloat(document.getElementById('amplitude').value);
-        const scale = parseFloat(document.getElementById('scale').value);
-
-        geometry = new THREE.PlaneGeometry(100, 100, 60, 60);
+        
+        // Higher resolution for "Natural" look
+        geometry = new THREE.PlaneGeometry(120, 120, 100, 100);
         const pos = geometry.attributes.position;
+        const colors = [];
 
         for (let i = 0; i < pos.count; i++) {
-            let x = pos.getX(i) * scale;
-            let y = pos.getY(i) * scale;
+            let x = pos.getX(i) * 0.08;
+            let y = pos.getY(i) * 0.08;
+            let z = 0;
+
+            // Layered Math for "Erosion"
+            for(let j = 1; j <= octs; j++) {
+                z += (Math.sin(x * j + seed) * Math.cos(y * j + seed)) * (amp / j);
+            }
+            pos.setZ(i, z);
+
+            // Natural Color Logic (Biomes)
+            const c = new THREE.Color();
+            if (z < 2) c.setHex(0x3d5a80);      // Water/Deep
+            else if (z < 5) c.setHex(0xe0cda9); // Sand
+            else if (z < 15) c.setHex(0x4f772d); // Forest
+            else if (z < 25) c.setHex(0x90a955); // Grassland
+            else c.setHex(0xffffff);           // Snow Peaks
+            
+            colors.push(c.r, c.g, c.b);
+        }
+
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geometry.computeVertexNormals();
+
+        const material = new THREE.MeshStandardMaterial({ 
+            vertexColors: true, 
+            flatShading: false,
+            roughness: 0.8
+        });
+
+        terrain = new THREE.Mesh(geometry, material);
+        terrain.rotation.x = -Math.PI / 2;
+        scene.add(terrain);
+
+        document.getElementById('oct-val').innerText = octs;
+        document.getElementById('amp-val').innerText = amp;
+    }
+
+    // Controls
+    document.querySelectorAll('input').forEach(el => el.oninput = createNature);
+    document.getElementById('reseed').onclick = () => { seed = Math.random() * 50; createNature(); };
+
+    function animate() {
+        requestAnimationFrame(animate);
+        terrain.rotation.z += 0.001;
+        renderer.render(scene, camera);
+    }
+
+    init();
+</script>
+</body>
+</html>            let y = pos.getY(i) * scale;
             let z = 0;
 
             // Layered Noise Logic
