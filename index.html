@@ -1,52 +1,115 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Terrain Workshop</title>
+    <meta charset="UTF-8">
+    <title>Procedural Landscape - Parametric Control</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; background: #000; color: #0f0; font-family: monospace; overflow: hidden; }
-        #ui { position: absolute; top: 10px; left: 10px; z-index: 10; background: rgba(0,0,0,0.8); padding: 10px; border: 1px solid #0f0; }
+        body { margin: 0; background: #050505; color: #00ffcc; font-family: 'Courier New', monospace; overflow: hidden; }
+        #controls { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.85); padding: 20px; border: 1px solid #00ffcc; width: 220px; z-index: 100; }
+        .group { margin-bottom: 15px; }
+        label { display: block; font-size: 11px; margin-bottom: 5px; }
+        input { width: 100%; cursor: pointer; }
+        .val { float: right; color: #fff; }
     </style>
 </head>
 <body>
-    <div id="ui">
-        <h3>SYSTEM ACTIVE</h3>
-        <button onclick="location.reload()">REGENERATE</button>
+
+<div id="controls">
+    <div style="font-weight:bold; margin-bottom:15px; border-bottom: 1px solid #00ffcc;">TERRAIN_PARAMS</div>
+    
+    <div class="group">
+        <label>Complexity <span class="val" id="oct-v">3</span></label>
+        <input type="range" id="octaves" min="1" max="5" value="3">
     </div>
-    <script>
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
-        const renderer = new THREE.WebGLRenderer();
+
+    <div class="group">
+        <label>Peak Height <span class="val" id="amp-v">15</span></label>
+        <input type="range" id="amplitude" min="5" max="40" value="15">
+    </div>
+
+    <div class="group">
+        <label>Noise Scale <span class="val" id="scale-v">0.1</span></label>
+        <input type="range" id="scale" min="0.05" max="0.3" step="0.01" value="0.1">
+    </div>
+
+    <button id="reseed" style="width:100%; background:transparent; color:#00ffcc; border:1px solid #00ffcc; cursor:pointer; padding:5px;">GENERATE NEW SEED</button>
+</div>
+
+<script>
+    let scene, camera, renderer, terrain, geometry;
+    let seed = Math.random() * 1000;
+
+    function init() {
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        const geometry = new THREE.PlaneGeometry(100, 100, 50, 50);
-        const pos = geometry.attributes.position;
-        for (let i = 0; i < pos.count; i++) {
-            let x = pos.getX(i) * 0.1;
-            let y = pos.getY(i) * 0.1;
-            pos.setZ(i, Math.sin(x) * Math.cos(y) * 10);
-        }
-        geometry.computeVertexNormals();
-        const material = new THREE.MeshPhongMaterial({ color: 0x00ff00, wireframe: true });
-        const terrain = new THREE.Mesh(geometry, material);
-        terrain.rotation.x = -Math.PI / 2;
-        scene.add(terrain);
-
-        const light = new THREE.PointLight(0xffffff, 1, 100);
-        light.position.set(0, 50, 0);
-        scene.add(light);
-
-        camera.position.z = 80;
-        camera.position.y = 40;
+        camera.position.set(0, 30, 70);
         camera.lookAt(0,0,0);
 
-        function animate() {
-            requestAnimationFrame(animate);
-            terrain.rotation.z += 0.005;
-            renderer.render(scene, camera);
-        }
+        const light = new THREE.PointLight(0x00ffcc, 1, 500);
+        light.position.set(0, 50, 50);
+        scene.add(light);
+        scene.add(new THREE.AmbientLight(0x222222));
+
+        updateTerrain();
         animate();
-    </script>
+    }
+
+    function updateTerrain() {
+        if (terrain) scene.remove(terrain);
+
+        const octaves = parseInt(document.getElementById('octaves').value);
+        const amp = parseFloat(document.getElementById('amplitude').value);
+        const scale = parseFloat(document.getElementById('scale').value);
+
+        geometry = new THREE.PlaneGeometry(100, 100, 60, 60);
+        const pos = geometry.attributes.position;
+
+        for (let i = 0; i < pos.count; i++) {
+            let x = pos.getX(i) * scale;
+            let y = pos.getY(i) * scale;
+            let z = 0;
+
+            // Layered Noise Logic
+            for(let j = 1; j <= octaves; j++) {
+                z += (Math.sin(x * j + seed) * Math.cos(y * j + seed)) * (amp / j);
+            }
+            pos.setZ(i, z);
+        }
+
+        geometry.computeVertexNormals();
+        const material = new THREE.MeshPhongMaterial({ color: 0x00ffcc, wireframe: true });
+        terrain = new THREE.Mesh(geometry, material);
+        terrain.rotation.x = -Math.PI / 2.5;
+        scene.add(terrain);
+
+        // Update UI Labels
+        document.getElementById('oct-v').innerText = octaves;
+        document.getElementById('amp-v').innerText = amp;
+        document.getElementById('scale-v').innerText = scale;
+    }
+
+    // Event Listeners
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', updateTerrain);
+    });
+
+    document.getElementById('reseed').addEventListener('click', () => {
+        seed = Math.random() * 1000;
+        updateTerrain();
+    });
+
+    function animate() {
+        requestAnimationFrame(animate);
+        terrain.rotation.z += 0.001;
+        renderer.render(scene, camera);
+    }
+
+    init();
+</script>
 </body>
 </html>
