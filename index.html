@@ -2,63 +2,48 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Advanced Procedural Biosphere - COM 325</title>
+    <title>Low-Poly Terrain - COM 325</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
-        #ui { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.85); padding: 20px; border: 1px solid #444; color: #fff; width: 250px; border-radius: 4px; z-index: 10; }
-        .slider-group { margin-bottom: 20px; }
-        label { display: block; font-size: 10px; letter-spacing: 1px; margin-bottom: 8px; color: #aaa; }
-        input { width: 100%; filter: hue-rotate(150deg); }
-        .stats { font-size: 9px; color: #666; margin-top: 10px; border-top: 1px solid #333; pt: 10px; }
+        body { margin: 0; background: #1a1a2e; overflow: hidden; font-family: sans-serif; }
+        #ui { position: absolute; top: 20px; left: 20px; background: rgba(255,255,255,0.1); 
+              backdrop-filter: blur(10px); padding: 20px; border-radius: 8px; color: white; border: 1px solid rgba(255,255,255,0.2); }
+        input { width: 100%; margin: 10px 0; cursor: pointer; }
+        label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; }
     </style>
 </head>
 <body>
 
 <div id="ui">
-    <div style="font-size: 14px; margin-bottom: 20px; color: #00ffcc;">BIOSPHERE_OS v2.6</div>
-    
-    <div class="slider-group">
-        <label>TECTONIC_FORCE (Amplitude)</label>
-        <input type="range" id="amp" min="2" max="45" value="25">
-    </div>
-
-    <div class="slider-group">
-        <label>ATMOSPHERIC_DENSITY (Fog)</label>
-        <input type="range" id="fog" min="0.005" max="0.05" step="0.001" value="0.01">
-    </div>
-
-    <div class="slider-group">
-        <label>EVOLUTION_SPEED (Time)</label>
-        <input type="range" id="speed" min="0" max="0.05" step="0.001" value="0.01">
-    </div>
-
-    <div class="stats">
-        COORD: <span id="stat-coord">0,0</span><br>
-        PHASE: III_INTERACTION
-    </div>
+    <label>Tectonic Elevation</label>
+    <input type="range" id="amp" min="5" max="40" value="18">
+    <label>Geometric Detail</label>
+    <input type="range" id="detail" min="20" max="80" value="40">
+    <button id="reseed" style="width:100%; padding:5px; background:white; border:none; border-radius:3px; cursor:pointer;">NEW SEED</button>
 </div>
 
 <script>
-    let scene, camera, renderer, terrain, geometry, sun;
-    let time = 0;
+    let scene, camera, renderer, terrain, sun;
+    let seed = Math.random() * 100;
 
     function init() {
         scene = new THREE.Scene();
-        
-        camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 40, 100);
+        scene.background = new THREE.Color(0x1a1a2e);
+        scene.fog = new THREE.Fog(0x1a1a2e, 50, 150);
+
+        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(60, 60, 60);
         camera.lookAt(0, 0, 0);
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.body.appendChild(renderer.domElement);
 
-        // Dynamic Lighting for Day/Night Cycle
-        sun = new THREE.DirectionalLight(0xffffff, 1.5);
-        sun.position.set(50, 100, 50);
+        // Sharp Lighting for "Cool" Shadows
+        sun = new THREE.DirectionalLight(0xffffff, 1);
+        sun.position.set(1, 1, 1);
         scene.add(sun);
-        scene.add(new THREE.AmbientLight(0x202020));
+        scene.add(new THREE.AmbientLight(0x444477));
 
         createTerrain();
         animate();
@@ -66,13 +51,33 @@
 
     function createTerrain() {
         if (terrain) scene.remove(terrain);
+
+        const amp = parseFloat(document.getElementById('amp').value);
+        const det = parseInt(document.getElementById('detail').value);
         
-        // High-density mesh for "Subtle Poetic Practice"
-        geometry = new THREE.PlaneGeometry(150, 150, 128, 128);
+        // Low-poly geometry uses fewer segments
+        const geometry = new THREE.PlaneGeometry(100, 100, det, det);
+        const pos = geometry.attributes.position;
+
+        for (let i = 0; i < pos.count; i++) {
+            let x = pos.getX(i) * 0.1;
+            let y = pos.getY(i) * 0.1;
+            
+            // Clean noise: Layered Sine/Cosine
+            let z = (Math.sin(x + seed) * Math.cos(y + seed) * amp);
+            z += (Math.sin(x * 2) * Math.cos(y * 2) * (amp/4));
+            
+            pos.setZ(i, z);
+        }
+
+        geometry.computeVertexNormals();
+
+        // FlatShading = The "Cool" Low Poly Look
         const material = new THREE.MeshStandardMaterial({ 
-            vertexColors: true, 
-            roughness: 0.7,
-            metalness: 0.2
+            color: 0x44aaee, 
+            flatShading: true,
+            metalness: 0.1,
+            roughness: 0.5
         });
 
         terrain = new THREE.Mesh(geometry, material);
@@ -80,60 +85,15 @@
         scene.add(terrain);
     }
 
-    function updateGeometry() {
-        const pos = geometry.attributes.position;
-        const colors = [];
-        const amp = parseFloat(document.getElementById('amp').value);
-        const speed = parseFloat(document.getElementById('speed').value);
-        time += speed;
-
-        for (let i = 0; i < pos.count; i++) {
-            let x = pos.getX(i) * 0.05;
-            let y = pos.getY(i) * 0.05;
-            
-            // "Living" Noise: Time-based Sine Summation
-            let z = (Math.sin(x + time) * Math.cos(y + time) * amp) + 
-                    (Math.sin(x * 2.1 + time * 1.5) * 4);
-            
-            pos.setZ(i, z);
-
-            // Dynamic Biome Mapping
-            const color = new THREE.Color();
-            if (z < -2) color.setHex(0x1a3a5a); // Deep Water
-            else if (z < 2) color.setHex(0x2a5a8a); // Shallows
-            else if (z < 5) color.setHex(0xd2b48c); // Coastal
-            else if (z < 18) color.setHex(0x2d5a27); // Forest
-            else color.setHex(0xeeeeee); // Tundra
-            
-            colors.push(color.r, color.g, color.b);
-        }
-
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        pos.needsUpdate = true;
-        geometry.computeVertexNormals();
-
-        // Update Scene Environment
-        const fogVal = parseFloat(document.getElementById('fog').value);
-        scene.fog = new THREE.FogExp2(0x000000, fogVal);
-        
-        // Update Sun Position (Day/Night)
-        sun.position.x = Math.sin(time * 0.2) * 100;
-        sun.position.y = Math.cos(time * 0.2) * 100;
-        
-        document.getElementById('stat-coord').innerText = `${Math.floor(sun.position.x)}, ${Math.floor(sun.position.y)}`;
-    }
+    document.getElementById('amp').oninput = createTerrain;
+    document.getElementById('detail').oninput = createTerrain;
+    document.getElementById('reseed').onclick = () => { seed = Math.random() * 100; createTerrain(); };
 
     function animate() {
         requestAnimationFrame(animate);
-        updateGeometry();
+        terrain.rotation.z += 0.002;
         renderer.render(scene, camera);
     }
-
-    window.addEventListener('resize', () => {
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
 
     init();
 </script>
