@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Planetary Core v30</title>
+    <title>Triple Octave Core</title>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
@@ -11,8 +11,9 @@
         canvas { display: block; width: 100% !important; height: 100% !important; }
         #ui { 
             position: absolute; top: 20px; left: 20px; z-index: 1000;
-            background: rgba(0,0,0,0.9); padding: 20px; border: 1px solid #00ffcc;
+            background: rgba(0,0,0,0.95); padding: 20px; border: 1px solid #00ffcc;
             color: #fff; width: 260px; border-radius: 4px; pointer-events: auto;
+            box-shadow: 0 0 25px rgba(0, 255, 204, 0.3);
         }
         .row { margin-bottom: 12px; }
         label { display: block; font-size: 9px; color: #00ffcc; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1.5px; }
@@ -25,18 +26,18 @@
 
 <div id="app-container">
     <div id="ui">
-        <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc;">PLANETARY_CORE_v30.0</div>
+        <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc;">TRIPLE_OCTAVE_CORE_v31.0</div>
         
         <div class="row">
             <label>Elevation <span class="val" id="v-fold">15</span></label>
             <input type="range" id="fold" min="0" max="60" value="15">
         </div>
         <div class="row">
-            <label>Complexity <span class="val" id="v-octave">0.4</span></label>
+            <label>Octave (Complexity) <span class="val" id="v-octave">0.4</span></label>
             <input type="range" id="octave" min="0" max="1" step="0.1" value="0.4">
         </div>
         <div class="row">
-            <label>Smoothness <span class="val" id="v-det">60</span></label>
+            <label>Smoothness (Poly) <span class="val" id="v-det">60</span></label>
             <input type="range" id="det" min="20" max="120" step="10" value="60">
         </div>
         <div class="row">
@@ -57,17 +58,12 @@
 
 <script>
 window.addEventListener('load', () => {
-    if (typeof THREE === 'undefined') {
-        console.error("Three.js not loaded");
-        return;
-    }
-
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 3000);
     camera.position.set(0, 160, 350);
     camera.lookAt(0, 0, 0);
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x000000, 1);
     document.getElementById('app-container').appendChild(renderer.domElement);
@@ -78,14 +74,16 @@ window.addEventListener('load', () => {
     // Cosmic Stars
     const starGeo = new THREE.BufferGeometry();
     const starCoords = [];
-    for (let i = 0; i < 2000; i++) {
+    for (let i = 0; i < 2500; i++) {
         starCoords.push((Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000);
     }
     starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1 })));
+    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.1 })));
 
-    scene.add(new THREE.DirectionalLight(0xffffff, 1.5).clone().translateY(200));
-    scene.add(new THREE.AmbientLight(0x222233, 0.5));
+    const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+    sun.position.set(100, 200, 100);
+    scene.add(sun);
+    scene.add(new THREE.AmbientLight(0x222233, 0.4));
 
     let geometry, material, mesh;
     const raycaster = new THREE.Raycaster();
@@ -95,7 +93,7 @@ window.addEventListener('load', () => {
     const poles = [
         { low: 0x1a4a63, mid: 0x2d5a27, high: 0xeeeeee },
         { low: 0x4a1a1a, mid: 0xbc4a3c, high: 0xffccaa },
-        { low: 0x111111, mid: 0x661100, high: 0xff4400 },
+        { low: 0x050505, mid: 0x881100, high: 0xffaa00 },
         { low: 0x001133, mid: 0xa5f2f3, high: 0xffffff }
     ];
 
@@ -144,8 +142,15 @@ window.addEventListener('load', () => {
 
         for (let i = 0; i < pos.count; i++) {
             const x = pos.getX(i), y = pos.getY(i);
+            
+            // Octave 1: Macro Hills
             let z = (Math.sin(x * freq) * Math.cos(y * freq) * fold);
-            z += (Math.sin(x * freq * 3) * Math.cos(y * freq * 3) * (fold * oct));
+            
+            // Octave 2: Mid-range Ridges
+            z += (Math.sin(x * freq * 3.1) * Math.cos(y * freq * 2.9) * (fold * oct * 0.5));
+            
+            // Octave 3: Micro Noise
+            z += (Math.sin(x * freq * 7.5) * Math.cos(y * freq * 8.2) * (fold * oct * 0.2));
             
             if (loc) {
                 const d = Math.sqrt((x - loc.x)**2 + (y - loc.y)**2);
@@ -162,7 +167,7 @@ window.addEventListener('load', () => {
 
             let c = new THREE.Color();
             if (finalZ < 2) c.copy(low);
-            else if (finalZ < 18) c.copy(mid);
+            else if (finalZ < 20) c.copy(mid);
             else c.copy(hi);
             colors.push(c.r, c.g, c.b);
         }
