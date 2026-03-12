@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Triple Octave Core</title>
+    <title>Recalibrated Fractal Core</title>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
@@ -26,33 +26,33 @@
 
 <div id="app-container">
     <div id="ui">
-        <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc;">TRIPLE_OCTAVE_CORE_v31.0</div>
+        <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc;">RECALIBRATED_CORE_v32.0</div>
         
         <div class="row">
-            <label>Elevation <span class="val" id="v-fold">15</span></label>
-            <input type="range" id="fold" min="0" max="60" value="15">
+            <label>Elevation (Scale) <span class="val" id="v-fold">20</span></label>
+            <input type="range" id="fold" min="0" max="80" value="20">
         </div>
         <div class="row">
-            <label>Octave (Complexity) <span class="val" id="v-octave">0.4</span></label>
-            <input type="range" id="octave" min="0" max="1" step="0.1" value="0.4">
+            <label>Octave (Complexity) <span class="val" id="v-octave">0.5</span></label>
+            <input type="range" id="octave" min="0" max="1" step="0.1" value="0.5">
+        </div>
+        <div class="row">
+            <label>Ruggedness (Freq) <span class="val" id="v-noiseFreq">0.10</span></label>
+            <input type="range" id="noiseFreq" min="0.02" max="0.3" step="0.01" value="0.10">
         </div>
         <div class="row">
             <label>Smoothness (Poly) <span class="val" id="v-det">60</span></label>
             <input type="range" id="det" min="20" max="120" step="10" value="60">
         </div>
         <div class="row">
-            <label>Ruggedness <span class="val" id="v-noiseFreq">0.12</span></label>
-            <input type="range" id="noiseFreq" min="0.05" max="0.4" step="0.01" value="0.12">
-        </div>
-        <div class="row">
-            <label>Seismic Force <span class="val" id="v-impact">45</span></label>
-            <input type="range" id="impact" min="0" max="120" value="45">
+            <label>Seismic Pulse <span class="val" id="v-impact">40</span></label>
+            <input type="range" id="impact" min="0" max="120" value="40">
         </div>
         <div class="row">
             <label>Biome Spectrum <span class="val" id="v-biome">0%</span></label>
             <input type="range" id="biome" min="0" max="100" value="0">
         </div>
-        <div id="hint">DRAG TO ORBIT // HOVER TO DEFORM</div>
+        <div id="hint">CLICK + DRAG TO SPIN // HOVER TO DEFORM</div>
     </div>
 </div>
 
@@ -74,7 +74,7 @@ window.addEventListener('load', () => {
     // Cosmic Stars
     const starGeo = new THREE.BufferGeometry();
     const starCoords = [];
-    for (let i = 0; i < 2500; i++) {
+    for (let i = 0; i < 2000; i++) {
         starCoords.push((Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000);
     }
     starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
@@ -91,16 +91,16 @@ window.addEventListener('load', () => {
     let isDragging = false, rotVel = 0, lastX = 0;
 
     const poles = [
-        { low: 0x1a4a63, mid: 0x2d5a27, high: 0xeeeeee },
-        { low: 0x4a1a1a, mid: 0xbc4a3c, high: 0xffccaa },
-        { low: 0x050505, mid: 0x881100, high: 0xffaa00 },
-        { low: 0x001133, mid: 0xa5f2f3, high: 0xffffff }
+        { low: 0x1a4a63, mid: 0x2d5a27, high: 0xeeeeee }, // Earth
+        { low: 0x4a1a1a, mid: 0xbc4a3c, high: 0xffccaa }, // Mars
+        { low: 0x050505, mid: 0x881100, high: 0xffaa00 }, // Lava
+        { low: 0x001133, mid: 0xa5f2f3, high: 0xffffff }  // Ice
     ];
 
     function buildMesh() {
         if (mesh) { world.remove(mesh); geometry.dispose(); }
         const d = parseInt(document.getElementById('det').value);
-        geometry = new THREE.PlaneBufferGeometry(200, 200, d, d);
+        geometry = new THREE.PlaneBufferGeometry(220, 220, d, d);
         material = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide, shininess: 0 });
         mesh = new THREE.Mesh(geometry, material);
         mesh.rotation.x = -Math.PI / 2;
@@ -122,7 +122,7 @@ window.addEventListener('load', () => {
     function frame() {
         requestAnimationFrame(frame);
         world.rotation.y += rotVel;
-        if (!isDragging) rotVel *= 0.95;
+        if (!isDragging) rotVel *= 0.96;
 
         const pos = geometry.attributes.position;
         const colors = [];
@@ -143,31 +143,34 @@ window.addEventListener('load', () => {
         for (let i = 0; i < pos.count; i++) {
             const x = pos.getX(i), y = pos.getY(i);
             
-            // Octave 1: Macro Hills
+            // --- RECALIBRATED NOISE CHAIN ---
+            // 1. Primary Wavelength
             let z = (Math.sin(x * freq) * Math.cos(y * freq) * fold);
             
-            // Octave 2: Mid-range Ridges
-            z += (Math.sin(x * freq * 3.1) * Math.cos(y * freq * 2.9) * (fold * oct * 0.5));
+            // 2. Add Octave Influence (Secondary Noise)
+            // Complexity scales with both frequency and the octave slider
+            z += (Math.sin(x * freq * 3.5) * Math.cos(y * freq * 3.5) * (fold * oct * 0.4));
             
-            // Octave 3: Micro Noise
-            z += (Math.sin(x * freq * 7.5) * Math.cos(y * freq * 8.2) * (fold * oct * 0.2));
+            // 3. Fine Grain (Tertiary Noise)
+            z += (Math.sin(x * freq * 8) * Math.cos(y * freq * 8) * (fold * oct * 0.15));
             
             if (loc) {
                 const d = Math.sqrt((x - loc.x)**2 + (y - loc.y)**2);
-                if (d < 45) z += (1 - d / 45) * imp;
+                if (d < 50) z += (1 - d / 50) * imp;
             }
             
             const curZ = pos.getZ(i);
             const finalZ = curZ + (z - curZ) * 0.2;
             pos.setZ(i, finalZ);
 
+            // Biome Colors
             const low = new THREE.Color(poles[pIdx].low).lerp(new THREE.Color(poles[nIdx].low), t);
             const mid = new THREE.Color(poles[pIdx].mid).lerp(new THREE.Color(poles[nIdx].mid), t);
             const hi = new THREE.Color(poles[pIdx].high).lerp(new THREE.Color(poles[nIdx].high), t);
 
             let c = new THREE.Color();
-            if (finalZ < 2) c.copy(low);
-            else if (finalZ < 20) c.copy(mid);
+            if (finalZ < 4) c.copy(low);
+            else if (finalZ < 22) c.copy(mid);
             else c.copy(hi);
             colors.push(c.r, c.g, c.b);
         }
@@ -176,9 +179,10 @@ window.addEventListener('load', () => {
         pos.needsUpdate = true;
         geometry.computeVertexNormals();
 
+        // UI Feedback
         document.getElementById('v-fold').innerText = fold;
         document.getElementById('v-octave').innerText = oct;
-        document.getElementById('v-noiseFreq').innerText = freq;
+        document.getElementById('v-noiseFreq').innerText = freq.toFixed(2);
         document.getElementById('v-impact').innerText = imp;
         document.getElementById('v-biome').innerText = Math.round(b * 100) + "%";
         
