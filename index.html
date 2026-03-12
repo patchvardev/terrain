@@ -3,15 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Spectrum Engine</title>
+    <title>Cosmic Spectrum Engine v28</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; }
         canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
         #ui { 
             position: absolute; top: 20px; left: 20px; z-index: 10;
-            background: rgba(0,0,0,0.9); padding: 20px; border: 1px solid #00ffcc;
+            background: rgba(0,0,0,0.92); padding: 20px; border: 1px solid #00ffcc;
             color: #fff; width: 260px; border-radius: 4px; pointer-events: auto;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
         }
         .row { margin-bottom: 12px; }
         label { display: block; font-size: 9px; color: #00ffcc; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1.5px; }
@@ -23,11 +24,16 @@
 <body>
 
 <div id="ui">
-    <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc; letter-spacing: 2px;">SPECTRUM_GENERATOR_v27.0</div>
+    <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc; letter-spacing: 2px;">ULTIMATE_ENGINE_v28.0</div>
     
     <div class="row">
-        <label>Elevation (Noise) <span class="val" id="v-fold">15</span></label>
+        <label>Primary Elevation <span class="val" id="v-fold">15</span></label>
         <input type="range" id="fold" min="0" max="60" value="15">
+    </div>
+
+    <div class="row">
+        <label>Complexity (Octave) <span class="val" id="v-octave">0.4</span></label>
+        <input type="range" id="octave" min="0" max="1" step="0.1" value="0.4">
     </div>
 
     <div class="row">
@@ -44,13 +50,8 @@
         <label>Biome Spectrum <span class="val" id="v-biome">0%</span></label>
         <input type="range" id="biome" min="0" max="100" value="0">
     </div>
-
-    <div class="row">
-        <label>Seismic Pulse <span class="val" id="v-impact">45</span></label>
-        <input type="range" id="impact" min="0" max="100" value="45">
-    </div>
     
-    <div id="hint">SWIPE TO ROTATE // HOVER TO DISTORT</div>
+    <div id="hint">DRAG TO ORBIT // HOVER TO DISTORT</div>
 </div>
 
 <script>
@@ -87,7 +88,6 @@ document.addEventListener('DOMContentLoaded', () => {
     let mouse = new THREE.Vector2(-1, -1);
     let isDragging = false, rotationVelocity = 0, lastMouseX = 0;
 
-    // Defined Color Poles for the Spectrum
     const poles = [
         { low: 0x1a4a63, mid: 0x2d5a27, high: 0xeeeeee }, // Earthly
         { low: 0x4a1a1a, mid: 0xbc4a3c, high: 0xffccaa }, // Martian
@@ -130,33 +130,35 @@ document.addEventListener('DOMContentLoaded', () => {
         let colors = [];
         let fold = parseFloat(document.getElementById('fold').value);
         let nFreq = parseFloat(document.getElementById('noiseFreq').value);
-        let impact = parseFloat(document.getElementById('impact').value);
+        let nOct = parseFloat(document.getElementById('octave').value);
         let bSlider = parseFloat(document.getElementById('biome').value) / 100;
 
         raycaster.setFromCamera(mouse, camera);
         let intersects = raycaster.intersectObject(mesh);
         let localPt = intersects.length > 0 ? mesh.worldToLocal(intersects[0].point.clone()) : null;
 
-        // Determine current biome LERP targets
         let poleIdx = Math.floor(bSlider * (poles.length - 1));
         let nextIdx = Math.min(poleIdx + 1, poles.length - 1);
         let lerpT = (bSlider * (poles.length - 1)) % 1;
 
         for (let i = 0; i < pos.count; i++) {
             let x = pos.getX(i), y = pos.getY(i);
+            
+            // Octave 1: Large Base Hills
             let z = (Math.sin(x * nFreq) * Math.cos(y * nFreq) * fold);
-            z += (Math.sin(x * nFreq * 2.5) * Math.cos(y * nFreq * 2.5) * (fold * 0.4));
+            
+            // Octave 2: Small Complexity (Rugged Detail)
+            z += (Math.sin(x * nFreq * 2.5) * Math.cos(y * nFreq * 2.5) * (fold * nOct));
             
             if (localPt) {
                 let dist = Math.sqrt((x - localPt.x)**2 + (y - localPt.y)**2);
-                if (dist < 45) z += (1 - dist / 45) * impact;
+                if (dist < 45) z += (1 - dist / 45) * 40; // Fixed interaction impact for stability
             }
             
             let curZ = pos.getZ(i);
             let finalZ = curZ + (z - curZ) * 0.15;
             pos.setZ(i, finalZ);
 
-            // Spectrum LERPing
             let lowC = new THREE.Color(poles[poleIdx].low).lerp(new THREE.Color(poles[nextIdx].low), lerpT);
             let midC = new THREE.Color(poles[poleIdx].mid).lerp(new THREE.Color(poles[nextIdx].mid), lerpT);
             let highC = new THREE.Color(poles[poleIdx].high).lerp(new THREE.Color(poles[nextIdx].high), lerpT);
@@ -174,8 +176,8 @@ document.addEventListener('DOMContentLoaded', () => {
         geometry.computeVertexNormals();
 
         document.getElementById('v-fold').innerText = fold;
+        document.getElementById('v-octave').innerText = nOct;
         document.getElementById('v-noiseFreq').innerText = nFreq;
-        document.getElementById('v-impact').innerText = impact;
         document.getElementById('v-biome').innerText = Math.round(bSlider * 100) + "%";
         
         renderer.render(scene, camera);
