@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Spectrum Engine v28</title>
+    <title>Cosmic Engine v29</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; }
@@ -12,7 +12,7 @@
             position: absolute; top: 20px; left: 20px; z-index: 10;
             background: rgba(0,0,0,0.92); padding: 20px; border: 1px solid #00ffcc;
             color: #fff; width: 260px; border-radius: 4px; pointer-events: auto;
-            box-shadow: 0 0 15px rgba(0, 255, 204, 0.2);
+            box-shadow: 0 0 20px rgba(0, 255, 204, 0.2);
         }
         .row { margin-bottom: 12px; }
         label { display: block; font-size: 9px; color: #00ffcc; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1.5px; }
@@ -24,7 +24,7 @@
 <body>
 
 <div id="ui">
-    <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc; letter-spacing: 2px;">ULTIMATE_ENGINE_v28.0</div>
+    <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc; letter-spacing: 2px;">PLANETARY_CORE_v29.0</div>
     
     <div class="row">
         <label>Primary Elevation <span class="val" id="v-fold">15</span></label>
@@ -45,13 +45,18 @@
         <label>Ruggedness <span class="val" id="v-noiseFreq">0.12</span></label>
         <input type="range" id="noiseFreq" min="0.05" max="0.4" step="0.01" value="0.12">
     </div>
+
+    <div class="row">
+        <label>Seismic Force <span class="val" id="v-impact">45</span></label>
+        <input type="range" id="impact" min="0" max="120" value="45">
+    </div>
     
     <div class="row">
         <label>Biome Spectrum <span class="val" id="v-biome">0%</span></label>
         <input type="range" id="biome" min="0" max="100" value="0">
     </div>
     
-    <div id="hint">DRAG TO ORBIT // HOVER TO DISTORT</div>
+    <div id="hint">DRAG TO ORBIT // HOVER TO DEFORM</div>
 </div>
 
 <script>
@@ -68,20 +73,20 @@ document.addEventListener('DOMContentLoaded', () => {
     let world = new THREE.Group();
     scene.add(world);
 
-    // Cosmic Backdrop
+    // Cosmic Starfield
     const starGeo = new THREE.BufferGeometry();
     const starCoords = [];
     for (let i = 0; i < 2000; i++) {
         starCoords.push((Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000);
     }
     starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1 }));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.1 }));
     scene.add(stars);
 
     let sun = new THREE.DirectionalLight(0xffffff, 1.4);
     sun.position.set(100, 200, 100);
     scene.add(sun);
-    scene.add(new THREE.AmbientLight(0x222233, 0.3));
+    scene.add(new THREE.AmbientLight(0x222233, 0.4));
 
     let geometry, material, mesh;
     let raycaster = new THREE.Raycaster();
@@ -131,59 +136,9 @@ document.addEventListener('DOMContentLoaded', () => {
         let fold = parseFloat(document.getElementById('fold').value);
         let nFreq = parseFloat(document.getElementById('noiseFreq').value);
         let nOct = parseFloat(document.getElementById('octave').value);
+        let impact = parseFloat(document.getElementById('impact').value);
         let bSlider = parseFloat(document.getElementById('biome').value) / 100;
 
         raycaster.setFromCamera(mouse, camera);
         let intersects = raycaster.intersectObject(mesh);
-        let localPt = intersects.length > 0 ? mesh.worldToLocal(intersects[0].point.clone()) : null;
-
-        let poleIdx = Math.floor(bSlider * (poles.length - 1));
-        let nextIdx = Math.min(poleIdx + 1, poles.length - 1);
-        let lerpT = (bSlider * (poles.length - 1)) % 1;
-
-        for (let i = 0; i < pos.count; i++) {
-            let x = pos.getX(i), y = pos.getY(i);
-            
-            // Octave 1: Large Base Hills
-            let z = (Math.sin(x * nFreq) * Math.cos(y * nFreq) * fold);
-            
-            // Octave 2: Small Complexity (Rugged Detail)
-            z += (Math.sin(x * nFreq * 2.5) * Math.cos(y * nFreq * 2.5) * (fold * nOct));
-            
-            if (localPt) {
-                let dist = Math.sqrt((x - localPt.x)**2 + (y - localPt.y)**2);
-                if (dist < 45) z += (1 - dist / 45) * 40; // Fixed interaction impact for stability
-            }
-            
-            let curZ = pos.getZ(i);
-            let finalZ = curZ + (z - curZ) * 0.15;
-            pos.setZ(i, finalZ);
-
-            let lowC = new THREE.Color(poles[poleIdx].low).lerp(new THREE.Color(poles[nextIdx].low), lerpT);
-            let midC = new THREE.Color(poles[poleIdx].mid).lerp(new THREE.Color(poles[nextIdx].mid), lerpT);
-            let highC = new THREE.Color(poles[poleIdx].high).lerp(new THREE.Color(poles[nextIdx].high), lerpT);
-
-            let finalC = new THREE.Color();
-            if (finalZ < 2) finalC.copy(lowC);
-            else if (finalZ < 15) finalC.copy(midC);
-            else finalC.copy(highC);
-
-            colors.push(finalC.r, finalC.g, finalC.b);
-        }
-
-        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-        pos.needsUpdate = true;
-        geometry.computeVertexNormals();
-
-        document.getElementById('v-fold').innerText = fold;
-        document.getElementById('v-octave').innerText = nOct;
-        document.getElementById('v-noiseFreq').innerText = nFreq;
-        document.getElementById('v-biome').innerText = Math.round(bSlider * 100) + "%";
-        
-        renderer.render(scene, camera);
-    }
-    animate();
-});
-</script>
-</body>
-</html>
+        let localPt = intersects.length > 0 ? mesh.worldToLocal(intersects
