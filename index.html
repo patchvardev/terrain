@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Biome Studio</title>
+    <title>Cosmic Spectrum Engine</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; }
         canvas { display: block; position: fixed; top: 0; left: 0; z-index: 1; }
         #ui { 
             position: absolute; top: 20px; left: 20px; z-index: 10;
-            background: rgba(0,0,0,0.92); padding: 20px; border: 1px solid #00ffcc;
+            background: rgba(0,0,0,0.9); padding: 20px; border: 1px solid #00ffcc;
             color: #fff; width: 260px; border-radius: 4px; pointer-events: auto;
         }
         .row { margin-bottom: 12px; }
@@ -23,11 +23,16 @@
 <body>
 
 <div id="ui">
-    <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc; letter-spacing: 2px;">BIOME_GENERATOR_v26.0</div>
+    <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc; letter-spacing: 2px;">SPECTRUM_GENERATOR_v27.0</div>
     
     <div class="row">
         <label>Elevation (Noise) <span class="val" id="v-fold">15</span></label>
         <input type="range" id="fold" min="0" max="60" value="15">
+    </div>
+
+    <div class="row">
+        <label>Smoothness (Poly) <span class="val" id="v-det">60</span></label>
+        <input type="range" id="det" min="20" max="120" step="10" value="60">
     </div>
 
     <div class="row">
@@ -36,13 +41,8 @@
     </div>
     
     <div class="row">
-        <label>Complexity <span class="val" id="v-octave">0.4</span></label>
-        <input type="range" id="octave" min="0" max="1" step="0.1" value="0.4">
-    </div>
-
-    <div class="row">
-        <label>Planetary Biome <span class="val" id="v-biome">TERRA</span></label>
-        <input type="range" id="biome" min="0" max="3" step="1" value="0">
+        <label>Biome Spectrum <span class="val" id="v-biome">0%</span></label>
+        <input type="range" id="biome" min="0" max="100" value="0">
     </div>
 
     <div class="row">
@@ -62,118 +62,111 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(window.devicePixelRatio);
     document.body.appendChild(renderer.domElement);
 
     let world = new THREE.Group();
     scene.add(world);
 
-    // --- COSMIC STARFIELD ---
+    // Cosmic Backdrop
     const starGeo = new THREE.BufferGeometry();
     const starCoords = [];
-    for (let i = 0; i < 2500; i++) {
+    for (let i = 0; i < 2000; i++) {
         starCoords.push((Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000);
     }
     starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-    const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.1 });
-    const stars = new THREE.Points(starGeo, starMat);
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1 }));
     scene.add(stars);
 
-    // --- SOLAR LIGHTING ---
     let sun = new THREE.DirectionalLight(0xffffff, 1.4);
     sun.position.set(100, 200, 100);
     scene.add(sun);
-    scene.add(new THREE.AmbientLight(0x111122, 0.4));
+    scene.add(new THREE.AmbientLight(0x222233, 0.3));
 
     let geometry, material, mesh;
     let raycaster = new THREE.Raycaster();
     let mouse = new THREE.Vector2(-1, -1);
     let isDragging = false, rotationVelocity = 0, lastMouseX = 0;
-    const friction = 0.96, sensitivity = 0.006;
 
-    const biomeNames = ["TERRA", "RED_WASTE", "VOLCANO", "ICE_GIANT"];
+    // Defined Color Poles for the Spectrum
+    const poles = [
+        { low: 0x1a4a63, mid: 0x2d5a27, high: 0xeeeeee }, // Earthly
+        { low: 0x4a1a1a, mid: 0xbc4a3c, high: 0xffccaa }, // Martian
+        { low: 0x111111, mid: 0x661100, high: 0xff4400 }, // Volcanic
+        { low: 0x001133, mid: 0xa5f2f3, high: 0xffffff }  // Glacial
+    ];
 
     function createMesh() {
         if (mesh) { world.remove(mesh); geometry.dispose(); }
-        // Use VertexColors to allow the biome to shade height differently
-        geometry = new THREE.PlaneBufferGeometry(180, 180, 80, 80);
-        material = new THREE.MeshPhongMaterial({ 
-            vertexColors: true, 
-            flatShading: true, 
-            side: THREE.DoubleSide,
-            shininess: 0 
-        });
+        let d = parseInt(document.getElementById('det').value);
+        geometry = new THREE.PlaneBufferGeometry(180, 180, d, d);
+        material = new THREE.MeshPhongMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide, shininess: 0 });
         mesh = new THREE.Mesh(geometry, material);
         mesh.rotation.x = -Math.PI / 2;
         world.add(mesh);
+        document.getElementById('v-det').innerText = d;
     }
 
-    window.addEventListener('mousedown', (e) => { 
-        if(e.target.tagName !== 'INPUT'){ isDragging = true; lastMouseX = e.clientX; }
-    });
+    window.addEventListener('mousedown', (e) => { if(e.target.tagName !== 'INPUT'){ isDragging = true; lastMouseX = e.clientX; }});
     window.addEventListener('mouseup', () => isDragging = false);
     window.addEventListener('mousemove', (e) => {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         if(isDragging) {
-            rotationVelocity = (e.clientX - lastMouseX) * sensitivity;
+            rotationVelocity = (e.clientX - lastMouseX) * 0.005;
             lastMouseX = e.clientX;
         }
     });
 
+    document.getElementById('det').oninput = createMesh;
     createMesh();
 
     function animate() {
         requestAnimationFrame(animate);
         world.rotation.y += rotationVelocity;
         stars.rotation.y += 0.0001;
-        if (!isDragging) rotationVelocity *= friction;
+        if (!isDragging) rotationVelocity *= 0.96;
 
         let pos = geometry.attributes.position;
         let colors = [];
         let fold = parseFloat(document.getElementById('fold').value);
         let nFreq = parseFloat(document.getElementById('noiseFreq').value);
-        let nOct = parseFloat(document.getElementById('octave').value);
         let impact = parseFloat(document.getElementById('impact').value);
-        let biomeIdx = parseInt(document.getElementById('biome').value);
+        let bSlider = parseFloat(document.getElementById('biome').value) / 100;
 
         raycaster.setFromCamera(mouse, camera);
         let intersects = raycaster.intersectObject(mesh);
         let localPt = intersects.length > 0 ? mesh.worldToLocal(intersects[0].point.clone()) : null;
 
+        // Determine current biome LERP targets
+        let poleIdx = Math.floor(bSlider * (poles.length - 1));
+        let nextIdx = Math.min(poleIdx + 1, poles.length - 1);
+        let lerpT = (bSlider * (poles.length - 1)) % 1;
+
         for (let i = 0; i < pos.count; i++) {
             let x = pos.getX(i), y = pos.getY(i);
-            
-            // Fractal Noise logic
             let z = (Math.sin(x * nFreq) * Math.cos(y * nFreq) * fold);
-            z += (Math.sin(x * nFreq * 2.5) * Math.cos(y * nFreq * 2.5) * (fold * nOct));
+            z += (Math.sin(x * nFreq * 2.5) * Math.cos(y * nFreq * 2.5) * (fold * 0.4));
             
             if (localPt) {
                 let dist = Math.sqrt((x - localPt.x)**2 + (y - localPt.y)**2);
                 if (dist < 45) z += (1 - dist / 45) * impact;
             }
             
-            let currentZ = pos.getZ(i);
-            let finalZ = currentZ + (z - currentZ) * 0.15;
+            let curZ = pos.getZ(i);
+            let finalZ = curZ + (z - curZ) * 0.15;
             pos.setZ(i, finalZ);
 
-            // --- BIOME COLOR LOGIC ---
-            let color = new THREE.Color();
-            if (biomeIdx === 0) { // TERRA
-                if (finalZ < 2) color.setHex(0x1a4a63);      // Ocean
-                else if (finalZ < 15) color.setHex(0x2d5a27); // Forest
-                else color.setHex(0xeeeeee);                // Snow
-            } else if (biomeIdx === 1) { // RED_WASTE
-                if (finalZ < 5) color.setHex(0x4a1a1a);
-                else color.setHex(0xbc4a3c);
-            } else if (biomeIdx === 2) { // VOLCANO
-                if (finalZ > 15) color.setHex(0xff4400);     // Lava peaks
-                else color.setHex(0x111111);                // Obsidian
-            } else { // ICE_GIANT
-                if (finalZ < 10) color.setHex(0xa5f2f3);
-                else color.setHex(0xffffff);
-            }
-            colors.push(color.r, color.g, color.b);
+            // Spectrum LERPing
+            let lowC = new THREE.Color(poles[poleIdx].low).lerp(new THREE.Color(poles[nextIdx].low), lerpT);
+            let midC = new THREE.Color(poles[poleIdx].mid).lerp(new THREE.Color(poles[nextIdx].mid), lerpT);
+            let highC = new THREE.Color(poles[poleIdx].high).lerp(new THREE.Color(poles[nextIdx].high), lerpT);
+
+            let finalC = new THREE.Color();
+            if (finalZ < 2) finalC.copy(lowC);
+            else if (finalZ < 15) finalC.copy(midC);
+            else finalC.copy(highC);
+
+            colors.push(finalC.r, finalC.g, finalC.b);
         }
 
         geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
@@ -182,9 +175,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('v-fold').innerText = fold;
         document.getElementById('v-noiseFreq').innerText = nFreq;
-        document.getElementById('v-octave').innerText = nOct;
         document.getElementById('v-impact').innerText = impact;
-        document.getElementById('v-biome').innerText = biomeNames[biomeIdx];
+        document.getElementById('v-biome').innerText = Math.round(bSlider * 100) + "%";
         
         renderer.render(scene, camera);
     }
