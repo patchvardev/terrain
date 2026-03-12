@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>COM 325: Kinetic Surface</title>
+    <title>Kinetic Momentum Studio</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; background: radial-gradient(circle at center, #333 0%, #000 100%); overflow: hidden; font-family: monospace; }
@@ -23,7 +23,7 @@
 <body>
 
 <div id="ui">
-    <div style="font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 15px;">KINETIC_SURFACE_v22</div>
+    <div style="font-weight: bold; border-bottom: 1px solid #333; padding-bottom: 5px; margin-bottom: 15px;">MOMENTUM_ENGINE_v23</div>
     
     <div class="row">
         <label>Elevation <span class="val" id="v-fold">12</span></label>
@@ -41,7 +41,7 @@
         <label>Color Hue <span class="val" id="v-hue">180</span></label>
         <input type="range" id="hue" min="0" max="360" value="180">
     </div>
-    <div id="hint">CLICK + DRAG TO ROTATE WORLD</div>
+    <div id="hint">SWIPE TO SPIN // HOVER TO RIPPLE</div>
 </div>
 
 <script>
@@ -55,11 +55,9 @@ document.addEventListener('DOMContentLoaded', () => {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // Pivot for clean rotation
     let world = new THREE.Group();
     scene.add(world);
 
-    // Lights
     let light = new THREE.DirectionalLight(0xffffff, 1.2);
     light.position.set(50, 100, 50);
     scene.add(light);
@@ -68,7 +66,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let geometry, material, mesh;
     let raycaster = new THREE.Raycaster();
     let mouse = new THREE.Vector2(-1, -1);
-    let isDragging = false, prevX = 0;
+    
+    // Momentum State
+    let isDragging = false;
+    let rotationVelocity = 0;
+    let lastMouseX = 0;
+    const friction = 0.96; // Adjust for "slipperiness"
+    const sensitivity = 0.005; // Adjust for "weight"
 
     function createMesh() {
         if (mesh) { world.remove(mesh); geometry.dispose(); }
@@ -81,12 +85,24 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('v-det').innerText = d;
     }
 
-    window.addEventListener('mousedown', (e) => { if(e.target.tagName !== 'INPUT'){ isDragging = true; prevX = e.clientX; }});
+    window.addEventListener('mousedown', (e) => { 
+        if(e.target.tagName !== 'INPUT'){ 
+            isDragging = true; 
+            lastMouseX = e.clientX; 
+        }
+    });
+    
     window.addEventListener('mouseup', () => isDragging = false);
+    
     window.addEventListener('mousemove', (e) => {
         mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
         mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        if(isDragging) { world.rotation.y += (e.clientX - prevX) * 0.01; prevX = e.clientX; }
+        
+        if(isDragging) {
+            let deltaX = e.clientX - lastMouseX;
+            rotationVelocity = deltaX * sensitivity;
+            lastMouseX = e.clientX;
+        }
     });
 
     document.getElementById('det').oninput = createMesh;
@@ -94,6 +110,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function animate() {
         requestAnimationFrame(animate);
+
+        // Apply Momentum
+        world.rotation.y += rotationVelocity;
+        if (!isDragging) {
+            rotationVelocity *= friction; // Slow down over time
+        }
+
         let pos = geometry.attributes.position;
         let fold = parseFloat(document.getElementById('fold').value);
         let impact = parseFloat(document.getElementById('impact').value);
