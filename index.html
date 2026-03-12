@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Precision Studio Mesh</title>
+    <title>Precision Mesh Studio</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { 
             margin: 0; 
-            background: radial-gradient(circle at center, #444 0%, #000 100%);
+            background: radial-gradient(circle at center, #333 0%, #000 100%);
             height: 100vh;
             overflow: hidden; 
             font-family: 'Courier New', monospace; 
         }
-        canvas { display: block; }
+        canvas { display: block; position: fixed; top: 0; left: 0; }
         #controls { 
             position: absolute; top: 20px; left: 20px; 
-            background: rgba(0, 0, 0, 0.85); padding: 20px; 
+            background: rgba(0, 0, 0, 0.9); padding: 20px; 
             border: 1px solid #444; color: #fff; 
             width: 250px; z-index: 100; border-radius: 4px;
         }
         .slider-wrap { margin-bottom: 12px; }
-        label { display: block; font-size: 10px; font-weight: bold; margin-bottom: 4px; color: #aaa; text-transform: uppercase; }
+        label { display: block; font-size: 10px; font-weight: bold; margin-bottom: 4px; color: #888; text-transform: uppercase; }
         input[type=range] { width: 100%; cursor: pointer; accent-color: #00ffcc; }
         .val-num { float: right; color: #00ffcc; font-weight: bold; }
     </style>
@@ -29,7 +29,7 @@
 <body>
 
 <div id="controls">
-    <div style="font-weight: bold; font-size: 13px; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px;">MESH_PRECISION_v16.0</div>
+    <div style="font-weight: bold; font-size: 13px; margin-bottom: 15px; border-bottom: 1px solid #333; padding-bottom: 5px;">STUDIO_MESH_FINAL</div>
     
     <div class="slider-wrap">
         <label>Base Geometry <span class="val-num" id="v-fold">12</span></label>
@@ -42,17 +42,23 @@
     </div>
 
     <div class="slider-wrap">
-        <label>Resolution <span class="val-num" id="v-det">70</span></label>
-        <input type="range" id="detail" min="20" max="100" step="10" value="70">
+        <label>Resolution <span class="val-num" id="v-det">60</span></label>
+        <input type="range" id="detail" min="20" max="100" step="10" value="60">
     </div>
 
     <div class="slider-wrap">
-        <label>Color <span class="val-num" id="v-hue">180</span></label>
+        <label>Surface Color <span class="val-num" id="v-hue">180</span></label>
         <input type="range" id="hue" min="0" max="360" value="180">
     </div>
 </div>
 
 <script>
+window.onload = function() {
+    if (typeof THREE === 'undefined') {
+        alert("Library Error: Three.js could not load. Please check your internet connection.");
+        return;
+    }
+
     let scene, camera, renderer, mesh, geometry, material;
     let mouse = new THREE.Vector2(-1, -1);
     let raycaster = new THREE.Raycaster();
@@ -60,31 +66,4 @@
     function init() {
         scene = new THREE.Scene();
 
-        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 2000);
-        camera.position.set(0, 100, 150); 
-        camera.lookAt(0, 0, 0);
-
-        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.body.appendChild(renderer.domElement);
-
-        // Strong studio lighting
-        const mainLight = new THREE.DirectionalLight(0xffffff, 1.5);
-        mainLight.position.set(50, 150, 50);
-        scene.add(mainLight);
-        
-        const ambient = new THREE.AmbientLight(0xffffff, 0.4);
-        scene.add(ambient);
-
-        createMesh();
-
-        window.addEventListener('mousemove', (e) => {
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        });
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.
+        camera
