@@ -3,106 +3,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Kinetic Mesh: Reactive Studio</title>
+    <title>Studio Mesh: Aligned Interaction</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; background-color: #f0f0f0; overflow: hidden; font-family: 'Courier New', monospace; }
+        body { margin: 0; background-color: #f5f5f5; overflow: hidden; font-family: 'Courier New', monospace; }
         #controls { 
             position: absolute; top: 20px; left: 20px; 
-            background: rgba(255, 255, 255, 0.9); padding: 20px; 
-            border: 1px solid #ccc; color: #333; 
-            width: 260px; z-index: 100; border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            background: rgba(255, 255, 255, 0.95); padding: 20px; 
+            border: 1px solid #ddd; color: #222; 
+            width: 250px; z-index: 100; border-radius: 4px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
         }
         .slider-wrap { margin-bottom: 15px; }
-        label { display: block; font-size: 10px; font-weight: bold; margin-bottom: 5px; text-transform: uppercase; color: #666; }
-        input[type=range] { width: 100%; cursor: pointer; accent-color: #444; }
-        .val-indicator { float: right; color: #000; font-size: 11px; }
-        #status { font-size: 9px; margin-top: 10px; color: #999; text-align: center; border-top: 1px solid #eee; padding-top: 10px; }
+        label { display: block; font-size: 10px; font-weight: bold; margin-bottom: 5px; color: #888; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: #222; }
+        .val-num { float: right; color: #000; }
+        #status-bar { font-size: 9px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #eee; color: #aaa; text-align: center; }
     </style>
 </head>
 <body>
 
 <div id="controls">
-    <div style="margin-bottom: 15px; border-bottom: 2px solid #333; padding-bottom: 8px; font-size: 14px; letter-spacing: 1px; font-weight: bold;">STUDIO_MESH_v6.0</div>
+    <div style="font-weight: bold; font-size: 13px; margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 5px;">MESH_STUDIO_v7.0</div>
     
     <div class="slider-wrap">
-        <label>Static Fold Scale <span class="val-indicator" id="v-fold">15</span></label>
-        <input type="range" id="fold" min="0" max="40" value="15">
+        <label>Base Geometry <span class="val-num" id="v-fold">10</span></label>
+        <input type="range" id="fold" min="0" max="30" value="10">
     </div>
 
     <div class="slider-wrap">
-        <label>Mouse Impact <span class="val-indicator" id="v-impact">30</span></label>
-        <input type="range" id="impact" min="0" max="100" value="30">
+        <label>Interaction Force <span class="val-num" id="v-impact">40</span></label>
+        <input type="range" id="impact" min="0" max="100" value="40">
     </div>
 
     <div class="slider-wrap">
-        <label>Material Hue <span class="val-indicator" id="v-hue">200</span></label>
-        <input type="range" id="hue" min="0" max="360" value="200">
+        <label>Surface Hue <span class="val-num" id="v-hue">210</span></label>
+        <input type="range" id="hue" min="0" max="360" value="210">
     </div>
 
-    <div id="status">MOTION_LOCKED // AWAITING_INPUT</div>
+    <div id="status-bar">SYSTEM_ALIGNED // READY</div>
 </div>
 
 <script>
     let scene, camera, renderer, mesh, geometry, material;
     let mouse = new THREE.Vector2(-1, -1);
     let raycaster = new THREE.Raycaster();
-    let targetZ = []; // Target heights for smoothing
 
     function init() {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
-        scene.fog = new THREE.Fog(0xffffff, 100, 300);
+        scene.background = new THREE.Color(0xf5f5f5);
+        scene.fog = new THREE.Fog(0xf5f5f5, 100, 400);
 
-        camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(80, 80, 80);
+        // Studio Camera Position
+        camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 100, 150); 
         camera.lookAt(0, 0, 0);
 
         renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
         renderer.shadowMap.enabled = true;
         document.body.appendChild(renderer.domElement);
 
-        // Lighting for the "White Room"
-        const ambient = new THREE.AmbientLight(0xffffff, 0.7);
-        scene.add(ambient);
+        // Lighting
+        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+        const sun = new THREE.DirectionalLight(0xffffff, 0.6);
+        sun.position.set(50, 100, 50);
+        sun.castShadow = true;
+        scene.add(sun);
 
-        const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-        dirLight.position.set(50, 100, 50);
-        dirLight.castShadow = true;
-        scene.add(dirLight);
-
-        // Ground Plane for Shadows
-        const floorGeo = new THREE.PlaneBufferGeometry(500, 500);
-        const floorMat = new THREE.ShadowMaterial({ opacity: 0.1 });
-        const floor = new THREE.Mesh(floorGeo, floorMat);
-        floor.rotation.x = -Math.PI / 2;
-        floor.position.y = -30;
-        floor.receiveShadow = true;
-        scene.add(floor);
-
-        // The Cloth Geometry
-        geometry = new THREE.PlaneBufferGeometry(120, 120, 70, 70);
+        // The Fabric Mesh
+        geometry = new THREE.PlaneBufferGeometry(140, 140, 80, 80);
         material = new THREE.MeshPhongMaterial({ 
-            color: 0x444444, 
-            wireframe: false,
+            color: 0x333333, 
             flatShading: true,
             side: THREE.DoubleSide
         });
 
         mesh = new THREE.Mesh(geometry, material);
-        mesh.rotation.x = -Math.PI / 2;
+        mesh.rotation.x = -Math.PI / 2; // Flat on floor
         mesh.castShadow = true;
         scene.add(mesh);
 
-        // Initialize target heights
-        for(let i = 0; i < geometry.attributes.position.count; i++) {
-            targetZ[i] = 0;
-        }
-
+        // Interaction
         window.addEventListener('mousemove', (e) => {
+            // Standard normalized coordinates
             mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
         });
@@ -119,162 +104,50 @@
     function animate() {
         requestAnimationFrame(animate);
         const pos = geometry.attributes.position;
-        
         const fold = parseFloat(document.getElementById('fold').value);
         const impact = parseFloat(document.getElementById('impact').value);
         const hue = document.getElementById('hue').value;
 
-        // Interaction Check
+        // Alignment Logic: Using the raycaster to find the 3D point
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(mesh);
         let point = null;
         if (intersects.length > 0) {
             point = intersects[0].point;
-            document.getElementById('status').innerText = "INPUT_DETECTED // INTERACTING";
-        } else {
-            document.getElementById('status').innerText = "MOTION_LOCKED // IDLE";
+            document.getElementById('status-bar').innerText = "TRACKING_ACTIVE";
         }
 
         for (let i = 0; i < pos.count; i++) {
             let px = pos.getX(i);
             let py = pos.getY(i);
             
-            // 1. Static Shape Logic (Sliders only)
-            // This creates a fixed procedural landscape based on the "fold" slider
+            // Base Procedural Shape (Instructional Logic)
             let z = (Math.sin(px * 0.1) * Math.cos(py * 0.1) * fold);
             
-            // 2. Mouse Ripple Logic (Only when hovering)
+            // Reactive Ripple (Mouse Displacement)
             if (point) {
+                // IMPORTANT: Since mesh is rotated -PI/2, we map py to point.z
                 const dx = px - point.x;
-                const dy = py - point.z;
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist < 40) {
-                    z += (1 - dist / 40) * impact;
-                }
-            }
-
-            // 3. Smoothing (Interpolation)
-            // This prevents "janky" motion by lerping to the new height
-            let currentZ = pos.getZ(i);
-            let nextZ = currentZ + (z - currentZ) * 0.1; // 0.1 is the smoothing factor
-            pos.setZ(i, nextZ);
-        }
-
-        pos.needsUpdate = true;
-        geometry.computeVertexNormals();
-        material.color.setHSL(hue / 360, 0.4, 0.5);
-
-        // UI Indicators
-        document.getElementById('v-fold').innerText = fold;
-        document.getElementById('v-impact').innerText = impact;
-        document.getElementById('v-hue').innerText = hue;
-
-        renderer.render(scene, camera);
-    }
-
-    init();
-</script>
-</body>
-</html>
-        // WebGL Renderer
-        renderer = new THREE.WebGLRenderer({ antialias: true });
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        renderer.setPixelRatio(window.devicePixelRatio);
-        document.body.appendChild(renderer.domElement);
-
-        // Lighting System
-        const topLight = new THREE.PointLight(0xffffff, 1.2, 600);
-        topLight.position.set(0, 150, 50);
-        scene.add(topLight);
-        scene.add(new THREE.AmbientLight(0x333333));
-
-        // Procedural Geometry (100x100 segments for detail)
-        geometry = new THREE.PlaneBufferGeometry(160, 160, 90, 90);
-        material = new THREE.MeshPhongMaterial({ 
-            color: 0x00ffcc, 
-            wireframe: true, 
-            side: THREE.DoubleSide,
-            transparent: true,
-            opacity: 0.9,
-            flatShading: true
-        });
-
-        mesh = new THREE.Mesh(geometry, material);
-        mesh.rotation.x = -Math.PI / 2; // Orient flat for hover logic
-        scene.add(mesh);
-
-        // Interaction Listeners
-        window.addEventListener('mousemove', (e) => {
-            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-        });
-
-        window.addEventListener('resize', () => {
-            camera.aspect = window.innerWidth / window.innerHeight;
-            camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
-        });
-
-        document.getElementById('toggleWire').onclick = () => {
-            isWire = !isWire;
-            material.wireframe = isWire;
-        };
-
-        animate();
-    }
-
-    function animate() {
-        requestAnimationFrame(animate);
-        const time = clock.getElapsedTime();
-        const pos = geometry.attributes.position;
-        
-        // Retrieve Parametric Inputs
-        const amp = parseFloat(document.getElementById('amp').value);
-        const speed = parseFloat(document.getElementById('speed').value);
-        const mForce = parseFloat(document.getElementById('mouseAmp').value);
-        const hue = document.getElementById('hue').value;
-
-        // Collision detection for Mouse Interaction
-        raycaster.setFromCamera(mouse, camera);
-        const intersects = raycaster.intersectObject(mesh);
-        let hoverPoint = null;
-        if (intersects.length > 0) {
-            hoverPoint = intersects[0].point;
-        }
-
-        // Vertex Displacement Loop
-        for (let i = 0; i < pos.count; i++) {
-            let px = pos.getX(i);
-            let py = pos.getY(i);
-            
-            // Layered Sine Logic (The "Cloth" Ripple)
-            let z = Math.sin(px * 0.12 + (time * speed * 40)) * Math.cos(py * 0.12 + (time * speed * 40)) * amp;
-            z += Math.sin(px * 0.4 + time) * 2; // Secondary noise layer
-            
-            // Distance-based Mouse Pulse
-            if (hoverPoint) {
-                const dx = px - hoverPoint.x;
-                const dy = py - hoverPoint.z;
+                const dy = py - (-point.z); // Fixed mirroring by flipping the Z-depth
                 const dist = Math.sqrt(dx*dx + dy*dy);
                 
                 if (dist < 35) {
-                    // Force exponential lift based on proximity
-                    z += (1 - dist / 35) * mForce;
+                    z += (1 - dist / 35) * impact;
                 }
             }
-            
-            pos.setZ(i, z);
+
+            // Smooth Interpolation (Lerp)
+            let currentZ = pos.getZ(i);
+            pos.setZ(i, currentZ + (z - currentZ) * 0.15);
         }
 
-        // Update Mesh Properties
         pos.needsUpdate = true;
         geometry.computeVertexNormals();
-        material.color.setHSL(hue / 360, 0.8, 0.5);
+        material.color.setHSL(hue / 360, 0.3, 0.4);
 
-        // UI Indicators
-        document.getElementById('v-amp').innerText = amp;
-        document.getElementById('v-speed').innerText = speed;
-        document.getElementById('v-mouse').innerText = mForce;
+        // UI Feedback
+        document.getElementById('v-fold').innerText = fold;
+        document.getElementById('v-impact').innerText = impact;
         document.getElementById('v-hue').innerText = hue;
 
         renderer.render(scene, camera);
