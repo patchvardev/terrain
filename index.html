@@ -3,17 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Recalibrated Fractal Core</title>
+    <title>Coupled Fractal Engine v34</title>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
     <style>
         body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
-        #app-container { position: relative; width: 100%; height: 100%; }
-        canvas { display: block; width: 100% !important; height: 100% !important; }
+        #app { position: relative; width: 100%; height: 100%; }
         #ui { 
-            position: absolute; top: 20px; left: 20px; z-index: 1000;
-            background: rgba(0,0,0,0.95); padding: 20px; border: 1px solid #00ffcc;
+            position: absolute; top: 20px; left: 20px; z-index: 100;
+            background: rgba(0,0,0,0.9); padding: 20px; border: 1px solid #00ffcc;
             color: #fff; width: 260px; border-radius: 4px; pointer-events: auto;
-            box-shadow: 0 0 25px rgba(0, 255, 204, 0.3);
         }
         .row { margin-bottom: 12px; }
         label { display: block; font-size: 9px; color: #00ffcc; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1.5px; }
@@ -24,25 +22,25 @@
 </head>
 <body>
 
-<div id="app-container">
+<div id="app">
     <div id="ui">
-        <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc;">RECALIBRATED_CORE_v32.0</div>
+        <div style="font-weight: bold; border-bottom: 1px solid #00ffcc; padding-bottom: 5px; margin-bottom: 15px; font-size: 11px; color: #00ffcc;">COUPLED_ENGINE_v34.0</div>
         
         <div class="row">
             <label>Elevation (Scale) <span class="val" id="v-fold">20</span></label>
             <input type="range" id="fold" min="0" max="80" value="20">
         </div>
         <div class="row">
-            <label>Octave (Complexity) <span class="val" id="v-octave">0.5</span></label>
-            <input type="range" id="octave" min="0" max="1" step="0.1" value="0.5">
+            <label>Complexity (Octave) <span class="val" id="v-octave">0.5</span></label>
+            <input type="range" id="octave" min="0" max="1.5" step="0.1" value="0.5">
         </div>
         <div class="row">
-            <label>Ruggedness (Freq) <span class="val" id="v-noiseFreq">0.10</span></label>
-            <input type="range" id="noiseFreq" min="0.02" max="0.3" step="0.01" value="0.10">
+            <label>Ruggedness (Freq) <span class="val" id="v-noiseFreq">0.08</span></label>
+            <input type="range" id="noiseFreq" min="0.02" max="0.25" step="0.01" value="0.08">
         </div>
         <div class="row">
-            <label>Smoothness (Poly) <span class="val" id="v-det">60</span></label>
-            <input type="range" id="det" min="20" max="120" step="10" value="60">
+            <label>Smoothness (Poly) <span class="val" id="v-det">70</span></label>
+            <input type="range" id="det" min="20" max="140" step="10" value="70">
         </div>
         <div class="row">
             <label>Seismic Pulse <span class="val" id="v-impact">40</span></label>
@@ -52,38 +50,36 @@
             <label>Biome Spectrum <span class="val" id="v-biome">0%</span></label>
             <input type="range" id="biome" min="0" max="100" value="0">
         </div>
-        <div id="hint">CLICK + DRAG TO SPIN // HOVER TO DEFORM</div>
+        <div id="hint">DRAG TO SPIN // HOVER TO DISTORT</div>
     </div>
 </div>
 
 <script>
 window.addEventListener('load', () => {
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 3000);
-    camera.position.set(0, 160, 350);
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 4000);
+    camera.position.set(0, 180, 380);
     camera.lookAt(0, 0, 0);
 
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setClearColor(0x000000, 1);
-    document.getElementById('app-container').appendChild(renderer.domElement);
+    document.getElementById('app').appendChild(renderer.domElement);
 
     const world = new THREE.Group();
     scene.add(world);
 
-    // Cosmic Stars
+    // Stars
     const starGeo = new THREE.BufferGeometry();
     const starCoords = [];
     for (let i = 0; i < 2000; i++) {
-        starCoords.push((Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000, (Math.random() - 0.5) * 2000);
+        starCoords.push((Math.random() - 0.5) * 2500, (Math.random() - 0.5) * 2500, (Math.random() - 0.5) * 2500);
     }
     starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starCoords, 3));
-    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.1 })));
+    scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.2 })));
 
-    const sun = new THREE.DirectionalLight(0xffffff, 1.6);
-    sun.position.set(100, 200, 100);
-    scene.add(sun);
-    scene.add(new THREE.AmbientLight(0x222233, 0.4));
+    scene.add(new THREE.DirectionalLight(0xffffff, 1.8).clone().translateY(300));
+    scene.add(new THREE.AmbientLight(0x222244, 0.4));
 
     let geometry, material, mesh;
     const raycaster = new THREE.Raycaster();
@@ -91,13 +87,13 @@ window.addEventListener('load', () => {
     let isDragging = false, rotVel = 0, lastX = 0;
 
     const poles = [
-        { low: 0x1a4a63, mid: 0x2d5a27, high: 0xeeeeee }, // Earth
-        { low: 0x4a1a1a, mid: 0xbc4a3c, high: 0xffccaa }, // Mars
-        { low: 0x050505, mid: 0x881100, high: 0xffaa00 }, // Lava
-        { low: 0x001133, mid: 0xa5f2f3, high: 0xffffff }  // Ice
+        { low: 0x0a2a43, mid: 0x1d4a17, high: 0xffffff }, // Earth
+        { low: 0x3a0a0a, mid: 0x9c3a2c, high: 0xffccaa }, // Mars
+        { low: 0x000000, mid: 0xee3300, high: 0xffcc00 }, // Sun/Lava
+        { low: 0x001133, mid: 0x75d2d3, high: 0xeeeeee }  // Neptune/Ice
     ];
 
-    function buildMesh() {
+    function build() {
         if (mesh) { world.remove(mesh); geometry.dispose(); }
         const d = parseInt(document.getElementById('det').value);
         geometry = new THREE.PlaneBufferGeometry(220, 220, d, d);
@@ -116,8 +112,8 @@ window.addEventListener('load', () => {
         if(isDragging) { rotVel = (e.clientX - lastX) * 0.005; lastX = e.clientX; }
     });
 
-    document.getElementById('det').oninput = buildMesh;
-    buildMesh();
+    document.getElementById('det').oninput = build;
+    build();
 
     function frame() {
         requestAnimationFrame(frame);
@@ -143,16 +139,12 @@ window.addEventListener('load', () => {
         for (let i = 0; i < pos.count; i++) {
             const x = pos.getX(i), y = pos.getY(i);
             
-            // --- RECALIBRATED NOISE CHAIN ---
-            // 1. Primary Wavelength
+            // --- HIERARCHICAL NOISE ---
             let z = (Math.sin(x * freq) * Math.cos(y * freq) * fold);
             
-            // 2. Add Octave Influence (Secondary Noise)
-            // Complexity scales with both frequency and the octave slider
-            z += (Math.sin(x * freq * 3.5) * Math.cos(y * freq * 3.5) * (fold * oct * 0.4));
-            
-            // 3. Fine Grain (Tertiary Noise)
-            z += (Math.sin(x * freq * 8) * Math.cos(y * freq * 8) * (fold * oct * 0.15));
+            // The detail layer is now amplified by the elevation (fold) to stay visible
+            let detail = (Math.sin(x * freq * 5) * Math.cos(y * freq * 5) * (fold * oct * 0.5));
+            z += detail;
             
             if (loc) {
                 const d = Math.sqrt((x - loc.x)**2 + (y - loc.y)**2);
@@ -179,7 +171,6 @@ window.addEventListener('load', () => {
         pos.needsUpdate = true;
         geometry.computeVertexNormals();
 
-        // UI Feedback
         document.getElementById('v-fold').innerText = fold;
         document.getElementById('v-octave').innerText = oct;
         document.getElementById('v-noiseFreq').innerText = freq.toFixed(2);
