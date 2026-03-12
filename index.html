@@ -157,3 +157,88 @@
 </script>
 </body>
 </html>
+        // The Fabric Mesh
+        geometry = new THREE.PlaneBufferGeometry(140, 140, 80, 80);
+        material = new THREE.MeshPhongMaterial({ 
+            color: 0x333333, 
+            flatShading: true,
+            side: THREE.DoubleSide
+        });
+
+        mesh = new THREE.Mesh(geometry, material);
+        mesh.rotation.x = -Math.PI / 2; // Flat on floor
+        mesh.castShadow = true;
+        scene.add(mesh);
+
+        // Interaction
+        window.addEventListener('mousemove', (e) => {
+            // Standard normalized coordinates
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        animate();
+    }
+
+    function animate() {
+        requestAnimationFrame(animate);
+        const pos = geometry.attributes.position;
+        const fold = parseFloat(document.getElementById('fold').value);
+        const impact = parseFloat(document.getElementById('impact').value);
+        const hue = document.getElementById('hue').value;
+
+        // Alignment Logic: Using the raycaster to find the 3D point
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObject(mesh);
+        let point = null;
+        if (intersects.length > 0) {
+            point = intersects[0].point;
+            document.getElementById('status-bar').innerText = "TRACKING_ACTIVE";
+        }
+
+        for (let i = 0; i < pos.count; i++) {
+            let px = pos.getX(i);
+            let py = pos.getY(i);
+            
+            // Base Procedural Shape (Instructional Logic)
+            let z = (Math.sin(px * 0.1) * Math.cos(py * 0.1) * fold);
+            
+            // Reactive Ripple (Mouse Displacement)
+            if (point) {
+                // IMPORTANT: Since mesh is rotated -PI/2, we map py to point.z
+                const dx = px - point.x;
+                const dy = py - (-point.z); // Fixed mirroring by flipping the Z-depth
+                const dist = Math.sqrt(dx*dx + dy*dy);
+                
+                if (dist < 35) {
+                    z += (1 - dist / 35) * impact;
+                }
+            }
+
+            // Smooth Interpolation (Lerp)
+            let currentZ = pos.getZ(i);
+            pos.setZ(i, currentZ + (z - currentZ) * 0.15);
+        }
+
+        pos.needsUpdate = true;
+        geometry.computeVertexNormals();
+        material.color.setHSL(hue / 360, 0.3, 0.4);
+
+        // UI Feedback
+        document.getElementById('v-fold').innerText = fold;
+        document.getElementById('v-impact').innerText = impact;
+        document.getElementById('v-hue').innerText = hue;
+
+        renderer.render(scene, camera);
+    }
+
+    init();
+</script>
+</body>
+</html>
