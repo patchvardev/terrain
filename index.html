@@ -3,49 +3,56 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dynamic Mesh Studio</title>
+    <title>Gradient Studio Mesh - DoF Edition</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
-        body { margin: 0; background-color: #ffffff; overflow: hidden; font-family: 'Courier New', monospace; }
+        body { 
+            margin: 0; 
+            /* Gradient Background for Depth of Field feel */
+            background: radial-gradient(circle at center, #444444 0%, #111111 100%);
+            overflow: hidden; 
+            font-family: 'Courier New', monospace; 
+        }
         #controls { 
             position: absolute; top: 20px; left: 20px; 
-            background: rgba(255, 255, 255, 0.95); padding: 20px; 
-            border: 2px solid #333; color: #222; 
-            width: 270px; z-index: 100; border-radius: 4px;
+            background: rgba(20, 20, 20, 0.85); padding: 20px; 
+            border: 1px solid #444; color: #eee; 
+            width: 260px; z-index: 100; border-radius: 4px;
+            backdrop-filter: blur(5px);
         }
         .slider-wrap { margin-bottom: 12px; }
-        label { display: block; font-size: 10px; font-weight: bold; margin-bottom: 4px; color: #555; }
-        input[type=range] { width: 100%; cursor: pointer; accent-color: #333; }
-        .val-num { float: right; color: #000; font-weight: bold; }
-        #status { font-size: 9px; margin-top: 10px; color: #888; text-align: center; border-top: 1px solid #eee; padding-top: 8px; }
+        label { display: block; font-size: 10px; font-weight: bold; margin-bottom: 4px; color: #888; }
+        input[type=range] { width: 100%; cursor: pointer; accent-color: #00ffcc; }
+        .val-num { float: right; color: #fff; font-weight: bold; }
+        #status-bar { font-size: 9px; margin-top: 15px; padding-top: 10px; border-top: 1px solid #333; color: #555; text-align: center; }
     </style>
 </head>
 <body>
 
 <div id="controls">
-    <div style="font-weight: bold; font-size: 13px; margin-bottom: 12px; border-bottom: 2px solid #333; padding-bottom: 5px;">DYNAMIC_SYSTEM_v11.0</div>
+    <div style="font-weight: bold; font-size: 13px; margin-bottom: 12px; border-bottom: 1px solid #444; padding-bottom: 5px;">GRADIENT_STUDIO_v13.0</div>
     
     <div class="slider-wrap">
-        <label>Static Elevation <span class="val-num" id="v-fold">10</span></label>
-        <input type="range" id="fold" min="0" max="40" value="10">
+        <label>Base Geometry <span class="val-num" id="v-fold">15</span></label>
+        <input type="range" id="fold" min="0" max="40" value="15">
     </div>
 
     <div class="slider-wrap">
-        <label>Mouse Pulse <span class="val-num" id="v-impact">40</span></label>
-        <input type="range" id="impact" min="0" max="100" value="40">
+        <label>Interaction Force <span class="val-num" id="v-impact">45</span></label>
+        <input type="range" id="impact" min="0" max="100" value="45">
     </div>
 
     <div class="slider-wrap">
-        <label>Mesh Density <span class="val-num" id="v-det">60</span></label>
+        <label>Mesh Resolution <span class="val-num" id="v-det">60</span></label>
         <input type="range" id="detail" min="20" max="100" step="10" value="60">
     </div>
 
     <div class="slider-wrap">
-        <label>Color Hue <span class="val-num" id="v-hue">200</span></label>
-        <input type="range" id="hue" min="0" max="360" value="200">
+        <label>Surface Hue <span class="val-num" id="v-hue">180</span></label>
+        <input type="range" id="hue" min="0" max="360" value="180">
     </div>
 
-    <div id="status">LIVE_FEEDBACK_ACTIVE</div>
+    <div id="status-bar">DEPTH_OF_FIELD_ENABLED // STABLE</div>
 </div>
 
 <script>
@@ -55,25 +62,29 @@
 
     function init() {
         scene = new THREE.Scene();
-        scene.background = new THREE.Color(0xffffff);
+        // Fog mimics Depth of Field by fading the mesh into the background gradient
+        scene.fog = new THREE.Fog(0x111111, 80, 280);
 
         camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 1000);
-        camera.position.set(0, 100, 160); 
+        camera.position.set(100, 100, 100); 
         camera.lookAt(0, 0, 0);
 
-        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.setPixelRatio(window.devicePixelRatio);
         document.body.appendChild(renderer.domElement);
 
-        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
-        const light = new THREE.DirectionalLight(0xffffff, 0.5);
-        light.position.set(50, 150, 50);
-        scene.add(light);
+        // High-contrast lighting for the gradient space
+        const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        mainLight.position.set(50, 100, 50);
+        scene.add(mainLight);
+        
+        const rimLight = new THREE.PointLight(0x00ffcc, 0.5);
+        rimLight.position.set(-100, 50, -100);
+        scene.add(rimLight);
 
         createMesh();
 
-        // Standard listeners for dynamic movement
         window.addEventListener('mousemove', (e) => {
             mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
             mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
@@ -85,9 +96,7 @@
             renderer.setSize(window.innerWidth, window.innerHeight);
         });
 
-        // Rebuild mesh only when the Detail slider is RELEASED (onchange)
-        // to prevent lag, while all other sliders update instantly (oninput).
-        document.getElementById('detail').onchange = createMesh;
+        document.getElementById('detail').oninput = createMesh;
 
         animate();
     }
@@ -98,11 +107,13 @@
             geometry.dispose();
         }
         const det = parseInt(document.getElementById('detail').value);
-        geometry = new THREE.PlaneBufferGeometry(150, 150, det, det);
+        geometry = new THREE.PlaneBufferGeometry(140, 140, det, det);
         material = new THREE.MeshPhongMaterial({ 
-            color: 0x444444, 
+            color: 0x888888, 
             flatShading: true,
-            side: THREE.DoubleSide
+            side: THREE.DoubleSide,
+            shininess: 40,
+            specular: 0x111111
         });
         mesh = new THREE.Mesh(geometry, material);
         mesh.rotation.x = -Math.PI / 2;
@@ -113,13 +124,10 @@
     function animate() {
         requestAnimationFrame(animate);
         const pos = geometry.attributes.position;
-        
-        // Grab values dynamically every frame
         const fold = parseFloat(document.getElementById('fold').value);
         const impact = parseFloat(document.getElementById('impact').value);
         const hue = document.getElementById('hue').value;
 
-        // Visual tracking logic
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(mesh);
         let point = (intersects.length > 0) ? intersects[0].point : null;
@@ -128,17 +136,8 @@
             let px = pos.getX(i);
             let py = pos.getY(i);
             
-            // 1. Procedural Base (Static Elevation)
             let z = (Math.sin(px * 0.1) * Math.cos(py * 0.1) * fold);
             
-            // 2. Interactive Distortion (Mouse Pulse)
             if (point) {
                 const dx = px - point.x;
-                const dy = py - (-point.z); 
-                const dist = Math.sqrt(dx*dx + dy*dy);
-                if (dist < 40) z += (1 - dist / 40) * impact;
-            }
-
-            // Smoothing Interpolation
-            let currentZ = pos.getZ(i);
-            pos.setZ(i, currentZ + (z - currentZ)
+                const dy =
