@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cosmic Engine v29</title>
+    <title>Ultimate Cosmic Engine v29</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <style>
         body { margin: 0; background-color: #000; overflow: hidden; font-family: 'Courier New', monospace; }
@@ -141,4 +141,58 @@ document.addEventListener('DOMContentLoaded', () => {
 
         raycaster.setFromCamera(mouse, camera);
         let intersects = raycaster.intersectObject(mesh);
-        let localPt = intersects.length > 0 ? mesh.worldToLocal(intersects
+        let localPt = intersects.length > 0 ? mesh.worldToLocal(intersects[0].point.clone()) : null;
+
+        let poleIdx = Math.floor(bSlider * (poles.length - 1));
+        let nextIdx = Math.min(poleIdx + 1, poles.length - 1);
+        let lerpT = (bSlider * (poles.length - 1)) % 1;
+
+        for (let i = 0; i < pos.count; i++) {
+            let x = pos.getX(i), y = pos.getY(i);
+            
+            // Octave 1: Macro Terrain
+            let z = (Math.sin(x * nFreq) * Math.cos(y * nFreq) * fold);
+            
+            // Octave 2: Micro Terrain
+            z += (Math.sin(x * nFreq * 2.5) * Math.cos(y * nFreq * 2.5) * (fold * nOct));
+            
+            // User Disturbance
+            if (localPt) {
+                let dist = Math.sqrt((x - localPt.x)**2 + (y - localPt.y)**2);
+                if (dist < 45) z += (1 - dist / 45) * impact;
+            }
+            
+            let curZ = pos.getZ(i);
+            let finalZ = curZ + (z - curZ) * 0.15;
+            pos.setZ(i, finalZ);
+
+            // Dynamic Biome LERP
+            let lowC = new THREE.Color(poles[poleIdx].low).lerp(new THREE.Color(poles[nextIdx].low), lerpT);
+            let midC = new THREE.Color(poles[poleIdx].mid).lerp(new THREE.Color(poles[nextIdx].mid), lerpT);
+            let highC = new THREE.Color(poles[poleIdx].high).lerp(new THREE.Color(poles[nextIdx].high), lerpT);
+
+            let finalC = new THREE.Color();
+            if (finalZ < 2) finalC.copy(lowC);
+            else if (finalZ < 18) finalC.copy(midC);
+            else finalC.copy(highC);
+
+            colors.push(finalC.r, finalC.g, finalC.b);
+        }
+
+        geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        pos.needsUpdate = true;
+        geometry.computeVertexNormals();
+
+        document.getElementById('v-fold').innerText = fold;
+        document.getElementById('v-octave').innerText = nOct;
+        document.getElementById('v-noiseFreq').innerText = nFreq;
+        document.getElementById('v-impact').innerText = impact;
+        document.getElementById('v-biome').innerText = Math.round(bSlider * 100) + "%";
+        
+        renderer.render(scene, camera);
+    }
+    animate();
+});
+</script>
+</body>
+</html>
